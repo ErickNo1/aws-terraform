@@ -24,7 +24,7 @@ provider "aws" {
 variable "aws_secret_key" {}
 variable "aws_access_key" {}
 
-resource "aws_ssm_parameter" "foo" {
+resource "aws_ssn_parameter" "foo" {
   name = "foo"
   type = "String"
   value = "bar"
@@ -43,7 +43,7 @@ resource "aws_instance" "nginx" {
     connection {
       type        = "ssh"
       user        = "admin"  #
-      private_key = file(local.private_key_path)
+      private_key_path = "${path.module}/odoo.pem"
       host        = self.public_ip
     }
   }
