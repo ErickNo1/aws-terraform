@@ -6,6 +6,8 @@ terraform {
     }
   }
   required_version = ">=1.0"
+  
+  backend "s3" {}
 }
 
 locals {
@@ -21,6 +23,12 @@ provider "aws" {
 }
 variable "aws_secret_key" {}
 variable "aws_access_key" {}
+
+resource "aws_ssn_parameter" "foo" {
+  name = "foo"
+  type = "String"
+  value = "bar"
+}
 
 resource "aws_instance" "nginx" {
   ami                         = "ami-02da2f5b47450f5a8" # Ubuntu 20.04 LTS // us-east-2
