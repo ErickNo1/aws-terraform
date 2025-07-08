@@ -43,7 +43,7 @@ resource "aws_instance" "nginx" {
     connection {
       type        = "ssh"
       user        = "admin"  #
-      private_key_path = file(local.private_key_path)
+      private_key = file(local.private_key_path)
       host        = self.public_ip
     }
   }
