@@ -24,7 +24,7 @@ provider "aws" {
 variable "aws_secret_key" {}
 variable "aws_access_key" {}
 
-resource "aws_ssn_parameter" "foo" {
+resource "aws_ssm_parameter" "foo" {
   name = "foo"
   type = "String"
   value = "bar"
