@@ -13,7 +13,7 @@ terraform {
 locals {
   ssh_user = "admin"
   key_name = "odoo"
-  private_key_path = "/home/debian/terraform2/odoo.pem"
+  private_key_path = "${path.module}/odoo.pem"
 }
 
 provider "aws" {
@@ -43,7 +43,7 @@ resource "aws_instance" "nginx" {
     connection {
       type        = "ssh"
       user        = "admin"  #
-      private_key_path = "${path.module}/odoo.pem"
+      private_key_path = file(local.private_key_path)
       host        = self.public_ip
     }
   }
