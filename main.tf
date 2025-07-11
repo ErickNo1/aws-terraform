@@ -1,4 +1,4 @@
-resource "aws_ssm_parameter" "foo" {
+resource "aws_ssn_parameter" "foo" {
   name  = "foo"
   type  = "String"
   value = "barr"
