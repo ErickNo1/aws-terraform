@@ -12,7 +12,7 @@ terraform {
 locals {
   ssh_user = "admin"
   key_name = "odoo"
-  private_key_path = "${path.module}/odoo.pem"
+  private_key_path = "${path.root}/odoo.pem"
 }
 
 provider "aws" {

@@ -34,6 +34,11 @@ jobs:
         with:
           terraform_version: 1.2.5
 
+      - name: Write SSH key
+        run: |
+          echo "${{ secrets.ODOO_PEM_B64 }}" | base64 -d > odoo.pem
+          chmod 600 odoo.pem
+
       - name: Terraform fmt
         id: fmt
         run: terraform fmt -check
