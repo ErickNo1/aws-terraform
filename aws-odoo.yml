@@ -1,0 +1,177 @@
+---
+- name: Install and configure Odoo 18 with HTTPS
+  hosts: all
+  become: true
+  vars:
+    domain_name: 23040004.lindavdesign.com
+    certbot_email: 23040004@utculiacan.edu.mx
+    odoo_repo_url: "https://nightly.odoo.com/18.0/nightly/deb/"
+
+  tasks:
+    - name: Ensure apt cache is updated
+      apt:
+        update_cache: yes
+
+    - name: Asegurarse de que gnupg está instalado
+      ansible.builtin.apt:
+        name: gnupg
+        state: present
+        update_cache: yes
+
+    - name: Install PostgreSQL server
+      apt:
+        name: postgresql
+        state: present
+
+    - name: Add Odoo GPG key
+      ansible.builtin.get_url:
+        url: https://nightly.odoo.com/odoo.key
+        dest: /tmp/odoo.key
+        mode: '0644'
+
+    - name: Añadir la clave GPG al keyring del sistema (legacy)
+      ansible.builtin.command: apt-key add /tmp/odoo.key
+
+    - name: Add Odoo repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://nightly.odoo.com/17.0/nightly/deb/ ./"
+        filename: odoo
+        state: present
+
+    - name: Install Odoo
+      apt:
+        name: odoo
+        state: present
+        update_cache: yes
+
+    - name: Enable and Start Odoo service
+      systemd:
+        name: odoo
+        enabled: yes
+        state: started
+
+    - name: Instalar Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Crear configuración Nginx directamente (HTTP → HTTPS)
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/odoo
+        content: |
+          server {
+              listen 80;
+              server_name 23040004.lindavdesign.com;
+
+              # Redirigir HTTP a HTTPS
+              return 301 https://$host$request_uri;
+          }
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Habilitar el sitio Odoo en Nginx
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/odoo
+        dest: /etc/nginx/sites-enabled/odoo
+        state: link
+        force: true
+
+    - name: Eliminar el sitio por defecto de Nginx (opcional pero recomendable)
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Validar configuración de Nginx
+      ansible.builtin.command: nginx -t
+      register: nginx_test
+      failed_when: "'successful' not in nginx_test.stderr"
+
+    - name: Recargar Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Set public IP from Ansible connection
+      set_fact:
+        vm_fqdn: "23040004.lindavdesign.com"
+        vm_ip: "3.21.159.27"
+
+    - name: Create a test.example.net A record to point to 127.0.0.1
+      community.general.cloudflare_dns:
+        zone: lindavdesign.com
+        record: "23040004.lindavdesign.com"
+        type: A
+        value: "3.21.159.27"
+        ttl: 600
+        account_email: "edgarlz123@gmail.com"
+        api_token: "{{ lookup('env', 'CF_API_TOKEN') }}"
+      register: record
+    
+    - name: Ensure pip is installed
+      apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Ensure dnspython is installed via apt
+      ansible.builtin.apt:
+        name: python3-dnspython
+        state: present
+        update_cache: yes
+
+    - name: Wait for DNS propagation
+      debug:
+        msg: "Esperando que {{ vm_fqdn }} apunte a {{ vm_ip }}"
+      until: lookup('community.general.dig', vm_fqdn) == vm_ip
+      retries: 30
+      delay: 10
+
+    - name: Instalar Certbot y plugin de Nginx
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Obtener y desplegar certificado SSL con Certbot
+      ansible.builtin.command: >
+        certbot --nginx -n --redirect --agree-tos --email {{ certbot_email }} -d {{ domain_name }}
+      args:
+        creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+
+    - name: Verificar que el certificado fue instalado
+      ansible.builtin.stat:
+        path: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+      register: cert_stat
+
+    - name: Mostrar mensaje si el certificado fue exitosamente instalado
+      ansible.builtin.debug:
+        msg: "¡Certificado SSL para {{ domain_name }} instalado correctamente!"
+      when: cert_stat.stat.exists
+
+    - name: Reemplazar configuración Nginx para Odoo con SSL
+      ansible.builtin.template:
+        src: odoo_ssl_nginx.conf
+        dest: /etc/nginx/sites-available/odoo
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Asegurar symlink en sites-enabled
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/odoo
+        dest: /etc/nginx/sites-enabled/odoo
+        state: link
+        force: yes
+
+    - name: Validar configuración de Nginx
+      ansible.builtin.command: nginx -t
+      register: nginx_test
+      failed_when: "'test is successful' not in nginx_test.stderr"
+
+    - name: Recargar Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

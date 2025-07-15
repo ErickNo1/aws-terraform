@@ -1,16 +1,20 @@
 name: "Terraform action"
+
 on:
   push:
     branches:
       - main
   pull_request:
+
 permissions:
-      id-token: write # This is required for aws oidc connection
-      contents: read # This is required for actions/checkout
-      pull-requests: write # This is required for gh bot to comment PR
+  id-token: write
+  contents: read
+  pull-requests: write
+
 env:
   TF_LOG: INFO
   AWS_REGION: ${{ secrets.AWS_REGION }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -34,9 +38,9 @@ jobs:
         with:
           terraform_version: 1.2.5
 
-      - name: Write SSH key
+      - name: Decrypt SSH key
         run: |
-          echo "${{ secrets.ODOO_PEM_B64 }}" | base64 -d > odoo.pem
+          openssl aes-256-cbc -d -in odoo.pem.enc -out odoo.pem -k "${{ secrets.ODOO_KEY_PASS }}"
           chmod 600 odoo.pem
 
       - name: Terraform fmt
@@ -105,3 +109,7 @@ jobs:
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
+
+      - name: Clean up key
+        if: always()
+        run: shred -u odoo.pem || rm -f odoo.pem
