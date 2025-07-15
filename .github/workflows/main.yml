@@ -14,6 +14,10 @@ permissions:
 env:
   TF_LOG: INFO
   AWS_REGION: ${{ secrets.AWS_REGION }}
+  CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+  ODOO_KEY_PASS: ${{ secrets.ODOO_KEY_PASS }}
+  aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+  aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
 
 jobs:
   deploy:
@@ -53,7 +57,7 @@ jobs:
         env:
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           AWS_BUCKET_KEY_NAME: ${{ secrets.AWS_BUCKET_KEY_NAME }}
-        run: terraform init -backend-config="bucket=${AWS_BUCKET_NAME}" -backend-config="key=${AWS_BUCKET_KEY_NAME}" -backend-config="region=${AWS_REGION}"
+        run: terraform init -backend-config="bucket=${AWS_BUCKET_NAME}" -backend-config="key=${AWS_BUCKET_KEY_NAME}" -backend-config="region=${AWS_REGION}" -force-copy
 
       - name: Terraform Validate
         id: validate
