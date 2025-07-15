@@ -1,16 +1,24 @@
 name: "Terraform action"
+
 on:
   push:
     branches:
       - main
   pull_request:
+
 permissions:
-      id-token: write # This is required for aws oidc connection
-      contents: read # This is required for actions/checkout
-      pull-requests: write # This is required for gh bot to comment PR
+  id-token: write
+  contents: read
+  pull-requests: write
+
 env:
   TF_LOG: INFO
   AWS_REGION: ${{ secrets.AWS_REGION }}
+  CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+  ODOO_KEY_PASS: ${{ secrets.ODOO_KEY_PASS }}
+  aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+  aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -34,6 +42,11 @@ jobs:
         with:
           terraform_version: 1.2.5
 
+      - name: Decrypt SSH key
+        run: |
+          openssl aes-256-cbc -d -in odoo.pem.enc -out odoo.pem -k "${{ secrets.ODOO_KEY_PASS }}"
+          chmod 600 odoo.pem
+
       - name: Terraform fmt
         id: fmt
         run: terraform fmt -check
@@ -44,7 +57,7 @@ jobs:
         env:
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           AWS_BUCKET_KEY_NAME: ${{ secrets.AWS_BUCKET_KEY_NAME }}
-        run: terraform init -backend-config="bucket=${AWS_BUCKET_NAME}" -backend-config="key=${AWS_BUCKET_KEY_NAME}" -backend-config="region=${AWS_REGION}"
+        run: terraform init -backend-config="bucket=${AWS_BUCKET_NAME}" -backend-config="key=${AWS_BUCKET_KEY_NAME}" -backend-config="region=${AWS_REGION}" -force-copy
 
       - name: Terraform Validate
         id: validate
@@ -100,3 +113,7 @@ jobs:
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve -input=false
+
+      - name: Clean up key
+        if: always()
+        run: shred -u odoo.pem || rm -f odoo.pem
